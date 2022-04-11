@@ -1,21 +1,25 @@
 library(haven)
 library(skimr)
+library(dplyr)
 
-house <- read_dta('114542-V1/PisoFirme_AEJPol-20070024_household.dta')
-indiv <- read_dta('114542-V1/PisoFirme_AEJPol-20070024_individual.dta')
+# loading in both household and individual-level datasets
+house <- read_dta('data/PisoFirme_AEJPol-20070024_household.dta')
+indiv <- read_dta('data/PisoFirme_AEJPol-20070024_individual.dta')
 
+# rows containing missing/null/NA values
+missing_house <- house[rowSums(is.na(house)) > 0,] %>% nrow()
+missing_indiv <- indiv[rowSums(is.na(indiv)) > 0,] %>% nrow()
 
-test <- house[rowSums(is.na(house)) > 0,]
-test2 <- indiv[rowSums(is.na(indiv)) > 0,]
-
-
+# skim-summary of both tables
 tt_indiv <- skim(indiv)
-tt_indiv = tt_indiv[c(),
-                    c(2,5,6,8:10,12)]
-print(tt_indiv)
-
-
 tt_house <- skim(house)
-tt_house = tt_house[c(1,8,22,23,24,27,28,29,38,50,68:72),
-                    c(2,5,6,8:10,12)]
-print(tt_house)
+
+
+# create summary dataframe for response & covariates
+response = tt_indiv[c(17,18,19,20,21,22,23), c(1,2,4,10,11,17)]
+
+print(response)
+
+covariates = tt_indiv[c(2:16,69:89),
+                      c(1,2,4,10,11,17)]
+print(covariates)
