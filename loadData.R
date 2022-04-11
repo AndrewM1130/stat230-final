@@ -16,10 +16,10 @@ tt_house <- skim(house)
 
 
 # create summary dataframe for response & covariates
-response = tt_indiv[c(17,18,19,20,21,22,23), c(1,2,4,10,11,17)]
+response = tt_indiv[c(17,18,19,20,21,22,23), c(1,2,10,11,17,13,15)]
 
 print(response)
 
 covariates = tt_indiv[c(2:16,69:89),
-                      c(1,2,4,10,11,17)]
+                      c(1,2,10,11,17,13,15)]
 print(covariates)
