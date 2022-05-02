@@ -1,6 +1,8 @@
 # package & data imports
 library(haven)
 library(tidyverse)
+library(miceadds)
+library(sandwich)
 
 setwd('C:/Users/hiros/Desktop/Storage/documents/linear models/project/stat230-final')
 
@@ -55,7 +57,7 @@ Impute_df = function(df) {
 }
 
 imp_cols = c(HH_demog1,HH_demog2,HH_health,HH_econ,HH_social,CH_demog)
-non_imp_cols = c(Ex_cols,HH_census,HH_survey,HH_floor,HH_satis,HH_robust,CH_survey,
+non_imp_cols = c(Ex_cols,HH_census,HH_floor,HH_satis,HH_robust,
                  CH_health,CH_robust,PA_robust,dtriage)
 df_imp = cbind(df[,non_imp_cols],Impute_df(df[,imp_cols]))
 
@@ -97,12 +99,18 @@ INmodel_4_control = c(dpisofirme,CH_demog_imp,dtriage,HH_health_imp,
 for (i in CH_health) {
   outcome = i
   for (j in 1:4) {
-    control = get(paste0('INmodel_',j,'_control')) %>% paste(collapse = " + ")
-    form = paste0(outcome,'~',control) %>% as.formula
+    control = get(paste0('INmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = df_imp[,c(outcome,control,'idcluster')]
+    df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
+
     assign(paste0(outcome,
                   '_INmodel_',
                   j), 
-           lm(form, df_imp,na.action = na.omit))
+           lm.cluster(formula = form, 
+                      data = df2,
+                      cluster = 'idcluster'))
   }
 }
 
