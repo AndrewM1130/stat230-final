@@ -120,7 +120,25 @@ for (i in CH_health) {
 ## Table 6: N/A
 ## Table 7: Robustness Checks
 
-
+for (i in c(CH_robust,HH_robust)) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('INmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = df_imp[,c(outcome,control,'idcluster')]
+    df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
+    
+    model = lm(formula = form,
+               data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL,
+                             cluster = ~idcluster)
+    
+    assign(paste0(outcome,
+                  '_INmodel_',
+                  j), cluster_model)
+  }
+}
 
 
 
