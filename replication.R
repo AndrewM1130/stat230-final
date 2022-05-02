@@ -3,6 +3,7 @@ library(haven)
 library(tidyverse)
 library(miceadds)
 library(sandwich)
+library(lmtest)
 
 setwd('C:/Users/hiros/Desktop/Storage/documents/linear models/project/stat230-final')
 
@@ -104,13 +105,15 @@ for (i in CH_health) {
     form = paste0(outcome,'~',control_form) %>% as.formula
     df2 = df_imp[,c(outcome,control,'idcluster')]
     df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
-
+    
+    model = lm(formula = form,
+               data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL,
+                              cluster = ~idcluster)
+    
     assign(paste0(outcome,
                   '_INmodel_',
-                  j), 
-           lm.cluster(formula = form, 
-                      data = df2,
-                      cluster = 'idcluster'))
+                  j), cluster_model)
   }
 }
 
