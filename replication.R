@@ -7,11 +7,9 @@ library(lmtest)
 
 setwd('C:/Users/hiros/Desktop/Storage/documents/linear models/project/stat230-final')
 
-
 house <- read_dta('data/PisoFirme_AEJPol-20070024_household.dta')
 indiv <- read_dta('data/PisoFirme_AEJPol-20070024_individual.dta')
 df = left_join(house,indiv)
-
 dpisofirme = c('dpisofirme')
 
 ## variable definitions for household dataframe
@@ -32,6 +30,7 @@ HH_floor <- c("S_shcementfloor", "S_cementfloorkit",
 HH_satis <- c("S_satisfloor", "S_satishouse", "S_satislife", "S_cesds", "S_pss")
 HH_robust <- c("S_instcement", "S_instsanita", "S_restsanita", "S_constceili",
                "S_restowalls", "S_improveany", "S_logrent", "S_logsell", "S_consumptionpc")
+
 CH_survey <- c("S_age", "S_gender", "S_childma", "S_childmaage", "S_childmaeduc", 
                "S_childpa", "S_childpaage", "S_childpaeduc")
 CH_demog <- c("S_HHpeople", "S_rooms", "S_age", "S_gender", "S_childma", "S_childmaage", 
@@ -44,16 +43,12 @@ dtriage = grep('dtriage?',colnames(df),value = T)
 Ex_cols = c('dpisofirme','idcluster','coord_x','coord_y','idmun','idmza')
 
 ## Missing Value Imputations
-
 Impute_df = function(df) {
   dmiss = apply(df,2,function(x) {
     return(is.na(x))
   }) %>% cbind.data.frame()
-  
   colnames(dmiss) = paste0('dmiss_',colnames(df))
-  
   df[is.na(df)] = 0
-  
   return(cbind(df,dmiss))
 }
 
@@ -70,7 +65,6 @@ HH_social_imp = c(HH_social,paste0('dmiss_',HH_social))[1:5]
 CH_demog_imp = c(CH_demog,paste0('dmiss_',CH_demog))
 
 ## Defining Models for Regressions
-
 HHmodel_1_control = dpisofirme
 HHmodel_2_control = c(dpisofirme,HH_demog1_imp,HH_demog2_imp,HH_health_imp)
 HHmodel_3_control = c(dpisofirme,HH_demog1_imp,HH_demog2_imp,HH_health_imp,
@@ -85,18 +79,33 @@ INmodel_3_control = c(dpisofirme,CH_demog_imp,dtriage,HH_health_imp,
 INmodel_4_control = c(dpisofirme,CH_demog_imp,dtriage,HH_health_imp,
                       HH_social_imp,HH_econ_imp)
 
-## Table 1: Description of Outcome Variables and Sample Sizes in 2005 Survey
-#tabstat $HH_floor $HH_satis $HH_robust if idcluster!=., by(dpisofirme) s(count);
-# t1 <- cbind(df$idcluster, df$dpisofirme, HH_floor,HH_satis, HH_robust) %>%
-#   na.rm()
+## Table 4: Regressions of cement floor coverage
+for (i in HH_floor) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('HHmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = df_imp[,c(outcome,control,'idcluster')]
+    df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
+    model = lm(formula = form,
+               data = df2)
+    print(model$coefficients['dpisofirme'])
+    cluster_model = coeftest(model,vcov=vcovCL,
+                             cluster = ~idcluster)
+    cat("error:", cluster_model[2,2], "\n")
+    if (j == 1) {
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(house)), "\n")
+    }
+    assign(paste0(outcome,
+                  '_HHmodel_',
+                  j), 
+           cluster_model)
+  }
+}
 
-## Table 1: Description of Outcome Variables and Sample Sizes in 2005 Survey
-#tabstat $CH_health $CH_robust $PA_robust if idcluster!=., by(dpisofirme) s(count);
-# t1 <- cbind(df$dpisofirme, df$idcluster, CH_health, CH_robust, PA_robust)
-
-## Table 4: Difference of Means for Independent Variables in 2005 Survey
-## Table 5: Child Health Measures
-
+## Table 5: Regressions of Child Health Measures
 for (i in CH_health) {
   outcome = i
   for (j in 1:4) {
@@ -111,16 +120,73 @@ for (i in CH_health) {
     cluster_model = coeftest(model,vcov=vcovCL,
                               cluster = ~idcluster)
     
+    #print(model$coefficients['dpisofirme'])
+    #cat("error:", cluster_model[2,2], "\n")
+    
+    if (j == 1) {
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
     assign(paste0(outcome,
                   '_INmodel_',
                   j), cluster_model)
   }
 }
 
-## Table 6: N/A
-## Table 7: Robustness Checks
+## Table 6: Regressions of Satisfaction & Mental Health 
+for (i in HH_satis) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('HHmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = df_imp[,c(outcome,control,'idcluster')]
+    df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
+    
+    model = lm(formula = form,
+               data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL,
+                             cluster = ~idcluster)
+    print(model$coefficients['dpisofirme'])
+    cat("error:", cluster_model[2,2], "\n")
+    if (j == 1) {
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
+    assign(paste0(outcome,
+                  '_HHmodel_',
+                  j), cluster_model)
+  }
+}
 
-for (i in c(CH_robust,HH_robust)) {
+## Table 7: Robustness Check Households
+for (i in c(HH_robust)) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('HHmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = df_imp[,c(outcome,control,'idcluster')]
+    df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
+    
+    model = lm(formula = form,
+               data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL,
+                             cluster = ~idcluster)
+    print(model$coefficients['dpisofirme'])
+    cat("error:", cluster_model[2,2], "\n")
+    if (j == 1) {
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
+    assign(paste0(outcome,
+                  '_HHmodel_',
+                  j), cluster_model)
+  }
+}
+
+## Robustness Check-Individual : first 3 rows
+for (i in c(CH_robust)) {
   outcome = i
   for (j in 1:4) {
     control = get(paste0('INmodel_',j,'_control'))
@@ -133,13 +199,44 @@ for (i in c(CH_robust,HH_robust)) {
                data = df2)
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
-    
+    print(model$coefficients['dpisofirme'])
+    cat("error:", cluster_model[2,2], "\n")
+    if (j == 1) {
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
     assign(paste0(outcome,
                   '_INmodel_',
                   j), cluster_model)
   }
 }
 
+## Robustness Check - PArobust - log mother income & log father income rows for Table 7
+for (i in c(PA_robust)) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('INmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = df_imp[,c(outcome,control,'idcluster')]
+    df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
+    model = lm(formula = form,
+               data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL,
+                             cluster = ~idcluster)
+    print(model$coefficients['dpisofirme'])
+    cat("error:", cluster_model[2,2], "\n")
+    if (j == 1) {
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
+    assign(paste0(outcome,
+                  '_INmodel_',
+                  j), cluster_model)
+  }
+}
+
+## Re-analysis
 
 
 
