@@ -1,7 +1,9 @@
 # package & data imports
 library(haven)
 library(tidyverse)
+library(mice)
 library(miceadds)
+library(VIM)
 library(sandwich)
 library(lmtest)
 
@@ -9,7 +11,7 @@ setwd('C:/Users/hiros/Desktop/Storage/documents/linear models/project/stat230-fi
 
 house <- read_dta('data/PisoFirme_AEJPol-20070024_household.dta')
 indiv <- read_dta('data/PisoFirme_AEJPol-20070024_individual.dta')
-df = left_join(house,indiv)
+df = left_join(house,indiv) 
 dpisofirme = c('dpisofirme')
 
 ## variable definitions for household dataframe
@@ -90,13 +92,16 @@ for (i in HH_floor) {
     df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
     model = lm(formula = form,
                data = df2)
-    print(model$coefficients['dpisofirme'])
-    cluster_model = coeftest(model,vcov=vcovCL,
-                             cluster = ~idcluster)
-    cat("error:", cluster_model[2,2], "\n")
+    
+    cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
+    
+    #print(model$coefficients['dpisofirme'])
+    #cat("error:", cluster_model[2,2], "\n")
+    
     if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
-      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(house)), "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
     }
     assign(paste0(outcome,
                   '_HHmodel_',
@@ -124,9 +129,11 @@ for (i in CH_health) {
     #cat("error:", cluster_model[2,2], "\n")
     
     if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
     }
+    
     assign(paste0(outcome,
                   '_INmodel_',
                   j), cluster_model)
@@ -147,12 +154,15 @@ for (i in HH_satis) {
                data = df2)
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
-    print(model$coefficients['dpisofirme'])
-    cat("error:", cluster_model[2,2], "\n")
+    #print(model$coefficients['dpisofirme'])
+    #cat("error:", cluster_model[2,2], "\n")
+    
     if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
     }
+    
     assign(paste0(outcome,
                   '_HHmodel_',
                   j), cluster_model)
@@ -176,6 +186,7 @@ for (i in c(HH_robust)) {
     print(model$coefficients['dpisofirme'])
     cat("error:", cluster_model[2,2], "\n")
     if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
     }
@@ -202,6 +213,7 @@ for (i in c(CH_robust)) {
     print(model$coefficients['dpisofirme'])
     cat("error:", cluster_model[2,2], "\n")
     if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
     }
@@ -227,6 +239,7 @@ for (i in c(PA_robust)) {
     print(model$coefficients['dpisofirme'])
     cat("error:", cluster_model[2,2], "\n")
     if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
     }
@@ -236,11 +249,142 @@ for (i in c(PA_robust)) {
   }
 }
 
-## Re-analysis
+# Re-analysis - Conduct MICE Imputation & Rerun Regressions to Compare Values
+# Instead of simply imputing all NA's with 0's we will impute categorical variables through maximum
+# likelihood and numerical variables through multiple regression fitting - this makes a lot more sense than
+# creating a bunch of extra dummy variables to keep track of missing values or imputation with 0's
+
+# Re-Imputation through MICE
+imp_cols = c(HH_demog1,HH_demog2,HH_health,HH_econ,HH_social,CH_demog)
+non_imp_cols = c(Ex_cols,HH_census,HH_floor,HH_satis,HH_robust,
+                 CH_health,CH_robust,PA_robust,dtriage)
+
+## drop extra column 'S_HHpeople'
+missing <- df[,imp_cols] %>% 
+  select(unique(colnames(.))) 
+
+## generate imputed missing values from 5 multivariate Gaussian distributions (m = 5)
+imp <- mice(missing %>% as.matrix, m  = 5, print = FALSE)
+imp$predictorMatrix
+
+## compare incomplete & imputed variable columns here
+aggr_plot <- aggr(missing, col=c('navyblue','red'), numbers=TRUE, 
+                  sortVars=TRUE, labels=names(data), cex.axis=.7, gap=3, 
+                  ylab=c("Histogram of missing data","Pattern"))
+
+densityplot(imp) ## density plot of imputed values
+
+## complete the imputation
+missing2 <- complete(imp,1)
+sapply(missing2, function(y) sum(length(which(is.na(y)))))
+missing <- missing2
+df_imp = cbind(df[,non_imp_cols],missing)
 
 
+# Re-defining Models for Regressions under Imputed Values
+HHmodel_1_control = dpisofirme
+HHmodel_2_control = c(dpisofirme,HH_demog1,HH_demog2,HH_health)
+HHmodel_3_control = c(dpisofirme,HH_demog1,HH_demog2,HH_health,
+                      HH_social)
+HHmodel_4_control = c(dpisofirme,HH_demog1,HH_demog2,
+                      HH_social,HH_econ)
 
+INmodel_1_control = dpisofirme
+INmodel_2_control = c(dpisofirme,CH_demog,dtriage,HH_health)
+INmodel_3_control = c(dpisofirme,CH_demog,dtriage,HH_health,
+                      HH_social)
+INmodel_4_control = c(dpisofirme,CH_demog,dtriage,HH_health,
+                      HH_social,HH_econ)
 
+# Re-run regressions which use these columns and compare resulting coefficient values
 
+## Cement floor coverage regression
+for (i in HH_floor) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('HHmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula()
+    df2 = na.omit(df_imp[,c(outcome,control,'idcluster')])
+    model = lm(formula = form,
+               data = df2)
+    
+    cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
+    
+    #print(model$coefficients['dpisofirme'])
+    #cat("error:", cluster_model[2,2], "\n")
+    
+    if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
+    assign(paste0(outcome,
+                  '_HHmodel_',
+                  j), 
+           cluster_model)
+  }
+}
+
+## Overall health of Affected Children
+for (i in CH_health) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('INmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = na.omit(df_imp[,c(outcome,control,'idcluster')])
+    
+    model = lm(formula = form,
+               data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL,
+                             cluster = ~idcluster)
+    
+    #print(model$coefficients['dpisofirme'])
+    #cat("error:", cluster_model[2,2], "\n")
+    
+    if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
+    
+    assign(paste0(outcome,
+                  '_INmodel_',
+                  j), cluster_model)
+  }
+}
+
+## Regressions of Satisfaction & Mental Health 
+for (i in HH_satis) {
+  outcome = i
+  for (j in 1:4) {
+    control = get(paste0('HHmodel_',j,'_control'))
+    control_form = paste(control,collapse = " + ")
+    form = paste0(outcome,'~',control_form) %>% as.formula
+    df2 = na.omit(df_imp[,c(outcome,control,'idcluster')])
+    
+    model = lm(formula = form,
+               data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL,
+                             cluster = ~idcluster)
+    
+    #print(model$coefficients['dpisofirme'])
+    #cat("error:", cluster_model[2,2], "\n")
+    
+    if (j == 1) {
+      cat("Current Dependant Variable:", i,"\n")
+      cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
+      cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+    }
+    
+    assign(paste0(outcome,
+                  '_HHmodel_',
+                  j), cluster_model)
+  }
+}
+
+# What does this tell us? Make a plot about it here - 
+# Is this a better way to impute & how do we compare?
 
 
