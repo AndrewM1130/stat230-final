@@ -7,8 +7,8 @@ library(VIM)
 library(sandwich)
 library(lmtest)
 
-setwd('C:/Users/hiros/Desktop/Storage/documents/linear models/project/stat230-final')
-
+#setwd('C:/Users/hiros/Desktop/Storage/documents/linear models/project/stat230-final')
+set.seed(1)
 house <- read_dta('data/PisoFirme_AEJPol-20070024_household.dta')
 indiv <- read_dta('data/PisoFirme_AEJPol-20070024_individual.dta')
 df = left_join(house,indiv) 
@@ -82,9 +82,11 @@ INmodel_4_control = c(dpisofirme,CH_demog_imp,dtriage,HH_health_imp,
                       HH_social_imp,HH_econ_imp)
 
 ## Table 4: Regressions of cement floor coverage
+## R package and state different, which is why we have matching control means 
+## but different control standard errors
 for (i in HH_floor) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('HHmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
@@ -95,25 +97,26 @@ for (i in HH_floor) {
     
     cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
     
-    #print(model$coefficients['dpisofirme'])
-    #cat("error:", cluster_model[2,2], "\n")
-    
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
     assign(paste0(outcome,
                   '_HHmodel_',
                   j), 
            cluster_model)
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
 ## Table 5: Regressions of Child Health Measures
 for (i in CH_health) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('INmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
@@ -122,28 +125,29 @@ for (i in CH_health) {
     
     model = lm(formula = form,
                data = df2)
-    cluster_model = coeftest(model,vcov=vcovCL,
-                              cluster = ~idcluster)
     
-    #print(model$coefficients['dpisofirme'])
-    #cat("error:", cluster_model[2,2], "\n")
+    cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
     
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
     
     assign(paste0(outcome,
                   '_INmodel_',
                   j), cluster_model)
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
 ## Table 6: Regressions of Satisfaction & Mental Health 
 for (i in HH_satis) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('HHmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
@@ -154,25 +158,28 @@ for (i in HH_satis) {
                data = df2)
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
-    #print(model$coefficients['dpisofirme'])
-    #cat("error:", cluster_model[2,2], "\n")
     
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
     
     assign(paste0(outcome,
                   '_HHmodel_',
                   j), cluster_model)
+    
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
 ## Table 7: Robustness Check Households
 for (i in c(HH_robust)) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('HHmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
@@ -183,50 +190,58 @@ for (i in c(HH_robust)) {
                data = df2)
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
-    print(model$coefficients['dpisofirme'])
-    cat("error:", cluster_model[2,2], "\n")
+
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
+    
     assign(paste0(outcome,
                   '_HHmodel_',
                   j), cluster_model)
+    
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
 ## Robustness Check-Individual : first 3 rows
 for (i in c(CH_robust)) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('INmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
     df2 = df_imp[,c(outcome,control,'idcluster')]
     df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
     
-    model = lm(formula = form,
-               data = df2)
-    cluster_model = coeftest(model,vcov=vcovCL,
-                             cluster = ~idcluster)
-    print(model$coefficients['dpisofirme'])
-    cat("error:", cluster_model[2,2], "\n")
+    model = lm(formula = form, data = df2)
+    cluster_model = coeftest(model,vcov=vcovCL, cluster = ~idcluster)
+
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
+    
     assign(paste0(outcome,
                   '_INmodel_',
                   j), cluster_model)
+    
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
-## Robustness Check - PArobust - log mother income & log father income rows for Table 7
+## Robustness Check - PARobust - log mother income & log father income rows for Table 7
 for (i in c(PA_robust)) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('INmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
@@ -236,16 +251,21 @@ for (i in c(PA_robust)) {
                data = df2)
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
-    print(model$coefficients['dpisofirme'])
-    cat("error:", cluster_model[2,2], "\n")
+
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
+    
     assign(paste0(outcome,
                   '_INmodel_',
                   j), cluster_model)
+    
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
@@ -301,7 +321,7 @@ INmodel_4_control = c(dpisofirme,CH_demog,dtriage,HH_health,
 ## Cement floor coverage regression
 for (i in HH_floor) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('HHmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula()
@@ -311,25 +331,28 @@ for (i in HH_floor) {
     
     cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
     
-    #print(model$coefficients['dpisofirme'])
-    #cat("error:", cluster_model[2,2], "\n")
-    
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
+    
     assign(paste0(outcome,
                   '_HHmodel_',
                   j), 
            cluster_model)
+    
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
 ## Overall health of Affected Children
 for (i in CH_health) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('INmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
@@ -340,25 +363,27 @@ for (i in CH_health) {
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
     
-    #print(model$coefficients['dpisofirme'])
-    #cat("error:", cluster_model[2,2], "\n")
-    
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
     
     assign(paste0(outcome,
                   '_INmodel_',
                   j), cluster_model)
+    
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
 ## Regressions of Satisfaction & Mental Health 
 for (i in HH_satis) {
   outcome = i
-  for (j in 1:4) {
+  for (j in 1:3) {
     control = get(paste0('HHmodel_',j,'_control'))
     control_form = paste(control,collapse = " + ")
     form = paste0(outcome,'~',control_form) %>% as.formula
@@ -369,22 +394,26 @@ for (i in HH_satis) {
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
     
-    #print(model$coefficients['dpisofirme'])
-    #cat("error:", cluster_model[2,2], "\n")
-    
     if (j == 1) {
       cat("Current Dependant Variable:", i,"\n")
       cat("Control Group Mean:",summary(model)$coefficients[1,1], "\n")
       cat("Control Group SD:",summary(model)$coefficients[1,2] * sqrt(nrow(df2)), "\n")
+      control_mean = summary(model)$coefficients[1,1]
     }
     
     assign(paste0(outcome,
                   '_HHmodel_',
                   j), cluster_model)
+    
+    cat("coef estimate:", model$coefficients['dpisofirme'], "\n")
+    cat("error:", cluster_model[2,2], "\n")
+    cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
 }
 
 # What does this tell us? Make a plot about it here - 
 # Is this a better way to impute & how do we compare?
+# compare R^2?
+summary(model)$r.squared
 
 
