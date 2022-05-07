@@ -84,6 +84,9 @@ INmodel_4_control = c(dpisofirme,CH_demog_imp,dtriage,HH_health_imp,
 ## Table 4: Regressions of cement floor coverage
 ## R package and state different, which is why we have matching control means 
 ## but different control standard errors
+r2_list = c()
+aic_list= c()
+
 for (i in HH_floor) {
   outcome = i
   for (j in 1:3) {
@@ -94,7 +97,8 @@ for (i in HH_floor) {
     df2 = df2[complete.cases(df2[,grep('[^dmiss]',colnames(df2))]),]
     model = lm(formula = form,
                data = df2)
-    
+    r2_list <- r2_list %>% append(summary(model)$adj.r.squared)
+    aic_list <- aic_list %>% append(AIC(model))
     cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
     
     if (j == 1) {
@@ -111,8 +115,12 @@ for (i in HH_floor) {
     cat("error:", cluster_model[2,2], "\n")
     cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
+  cat("R^2 values:", r2_list, "\n")
+  cat("AIC values:", aic_list, "\n")
 }
 
+r2_list = c()
+aic_list= c()
 ## Table 5: Regressions of Child Health Measures
 for (i in CH_health) {
   outcome = i
@@ -125,6 +133,8 @@ for (i in CH_health) {
     
     model = lm(formula = form,
                data = df2)
+    r2_list <- r2_list %>% append(summary(model)$adj.r.squared)
+    aic_list <- aic_list %>% append(AIC(model))
     
     cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
     
@@ -142,6 +152,8 @@ for (i in CH_health) {
     cat("error:", cluster_model[2,2], "\n")
     cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
+  cat("R^2 values:", r2_list, "\n")
+  cat("AIC values:", aic_list, "\n")
 }
 
 ## Table 6: Regressions of Satisfaction & Mental Health 
@@ -318,6 +330,8 @@ INmodel_4_control = c(dpisofirme,CH_demog,dtriage,HH_health,
 
 # Re-run regressions which use these columns and compare resulting coefficient values
 
+r2_list = c()
+aic_list= c()
 ## Cement floor coverage regression
 for (i in HH_floor) {
   outcome = i
@@ -328,6 +342,8 @@ for (i in HH_floor) {
     df2 = na.omit(df_imp[,c(outcome,control,'idcluster')])
     model = lm(formula = form,
                data = df2)
+    r2_list <- r2_list %>% append(summary(model)$adj.r.squared)
+    aic_list <- aic_list %>% append(AIC(model))
     
     cluster_model = coeftest(model, vcov = vcovCL, cluster = ~idcluster)
     
@@ -347,9 +363,13 @@ for (i in HH_floor) {
     cat("error:", cluster_model[2,2], "\n")
     cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
+  cat("R^2 values:", r2_list, "\n")
+  cat("AIC values:", aic_list, "\n")
 }
 
-## Overall health of Affected Children
+r2_list = c()
+aic_list= c()
+## Overall Regressions on Child Health Measures
 for (i in CH_health) {
   outcome = i
   for (j in 1:3) {
@@ -360,6 +380,9 @@ for (i in CH_health) {
     
     model = lm(formula = form,
                data = df2)
+    r2_list <- r2_list %>% append(summary(model)$adj.r.squared)
+    aic_list <- aic_list %>% append(AIC(model))
+    
     cluster_model = coeftest(model,vcov=vcovCL,
                              cluster = ~idcluster)
     
@@ -378,7 +401,10 @@ for (i in CH_health) {
     cat("error:", cluster_model[2,2], "\n")
     cat("100x(coef/mean):", 100 * (model$coefficients['dpisofirme']/control_mean), "\n")
   }
+  cat("R^2 values:", r2_list, "\n")
+  cat("AIC values:", aic_list, "\n")
 }
+
 
 ## Regressions of Satisfaction & Mental Health 
 for (i in HH_satis) {
@@ -414,6 +440,5 @@ for (i in HH_satis) {
 # What does this tell us? Make a plot about it here - 
 # Is this a better way to impute & how do we compare?
 # compare R^2?
-summary(model)$r.squared
 
 
